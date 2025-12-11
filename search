@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Program: Search
+# Purpose: I wanted to search for content around certain patterns, uniquely
+# TODO: Consider using 'tee' to prevent 'input=$(cat)'
+# Author: Brian Spragge, inspired by S0andS0
+#
+# Example:
+# $ history | search pacman
+# 200-  229  vim systemd/vi-ew.service
+# 201-  230  vim config/vi-ew.conf
+# 202-  231  vim src/main.c
+# 203:  232  sudo pacman -S distrobox
+# 204:  233  sudo pacman -S podman
+# 205-  234  distrobox create --name vi-ew-dev --image archlinux
+# 206-  235  distrobox enter vi-ew-dev
+# 207-  236  distrobox rm vi-ew-dev
+#
+# grep --help | search [grep_flags...] [--] [pattern1 pattern2...]
+# Search is basically 'grep -inEC1 args[@]'
+
+
+# Check for stdin and return error if 'search' was not piped text:
+if [ -t 0 ]; then
+    echo "What ya lookin' for?  I received no input!"
+    echo "EX: TODO.txt | search [grep_flags...] [--] [pattern1 pattern2...]"
+    exit 1
+fi
+
+# Variables
+input=$(cat)
+end_of_flags=false
+grep_flags=()
+patterns=()
+
+# Sort out '--' from 'grep flags' from patterns to be searched for:
+for arg in "$@"; do
+    if $end_of_flags; then
+        patterns+=("$arg")
+    elif [[ $arg == "--" ]]; then
+        end_of_flags=true
+    elif [[ $arg == -* ]]; then
+        grep_flags+=("$arg")
+    else
+        patterns+=("$arg")
+    fi
+done
+
+# Check for patterns and return error if none:
+if [ ${#patterns[@]} -eq 0 ]; then
+    echo "Nothing here!"
+    exit 1
+fi
+
+# Call each pattern individually with 'grep' and 'grep patterns':
+for pat in "${patterns[@]}"; do
+    printf '%s\n' "$input" | grep -inEC1 "${grep_flags[@]}" -- "$pat"
+done
+
