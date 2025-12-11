@@ -50,7 +50,7 @@ if [ ${#patterns[@]} -eq 0 ]; then
 fi
 
 # Call each pattern individually with 'grep' and 'grep patterns':
-for pat in "${patterns[@]}"; do
-    printf '%s\n' "$input" | grep -inEC1 "${grep_flags[@]}" -- "$pat"
+for pattern in "${patterns[@]}"; do
+    printf '%s\n' "$input" | grep -inEC1 "${grep_flags[@]}" -- "$pattern"
 done
 
