@@ -1,56 +1,83 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Program: Search
-# Purpose: I wanted to search for content around certain patterns
-# TODO: Consider using 'tee' to prevent 'input=$(cat)'
-# Author: Brian Spragge, inspired by S0andS0
+# Author: Brian Spragge, inspired/help by S0andS0
+# Program: Search - basically 'grep -inEC1 args[@]'
+# Purpose: See additional lines above+below searched pattern(s)
+#
+# How-To-Use:
+# grep --help | search [grep_flags...] [--] [pattern1 pattern2...]
 #
 # Example:
-# $ history | search pacman
+# $ history | search pacman DOS do-re-mi
+# Matched pattern -> pacman
 # 202-  231  vim src/main.c
 # 203:  232  sudo pacman -S distrobox
 # 204:  233  sudo pacman -S podman
 # 205-  234  distrobox create --name vi-ew-dev --image archlinux
 #
-# grep --help | search [grep_flags...] [--] [pattern1 pattern2...]
-# Search is basically 'grep -inEC1 args[@]'
+# Unused pattern(s) -> DOS do-re-mi
 
 
-# Check for stdin and return error if 'search' was not piped into:
-if [ -t 0 ]; then
-    echo "What ya lookin' for?  I received no input!"
-    echo "EX: grep --help | search [grep_flags...] [--] [pattern1 pattern2...]"
-    exit 1
+# TODO: Consider using 'tee' to prevent 'input=$(cat)'
+
+# If ! stdin(Search not piped into) then return error:
+if [[ -t 0 ]]; then
+  echo "What ya lookin' for?  I received no input!"
+  echo "EX: grep --help | search [grep_flags...] [--] [pattern1 pattern2...]"
+  exit 1
 fi
 
-# Variables
 input=$(cat)
 end_of_flags=false
 grep_flags=()
 patterns=()
 
-# Sort out '--' from 'grep flags' from patterns to be searched for:
-for arg in "$@"; do
-    if $end_of_flags; then
-        patterns+=("$arg")
-    elif [[ $arg == "--" ]]; then
-        end_of_flags=true
-    elif [[ $arg == -* ]]; then
-        grep_flags+=("$arg")
-    else
-        patterns+=("$arg")
-    fi
+# Sort 'grep flags', and patterns after '--', into variables:
+while (( ${#@} )); do
+  case "$1" in
+    --)
+      end_of_flags=true;
+      shift;
+    ;;
+    -*)
+      if $end_of_flags; then
+        patterns+=( "$1" );
+      else
+        grep_flags+=( "${1}" );
+      fi
+      shift;
+    ;;
+    *)
+      patterns+=( "${1}" )
+      shift;
+    ;;
+  esac
 done
 
-# Check for patterns and return error if none:
-if [ ${#patterns[@]} -eq 0 ]; then
-    echo "Nothing here!"
-    exit 1
+# User gave no pattern: exit with error
+if [[ ${#patterns[@]} -eq 0 ]]; then
+  echo "What ya lookin' for?  I received no pattern!"
+  echo "EX: grep --help | search [grep_flags...] [--] [pattern1 pattern2...]"
+  exit 1
 fi
 
+unused_patterns=()
+
 # Call each pattern individually with 'grep' and 'grep patterns':
+# Collect unused patterns for EOP
 for pattern in "${patterns[@]}"; do
-    printf '%s\n' "$input" | grep -inEC1 "${grep_flags[@]}" -- "$pattern"
+  found="$(grep -inEC1 "${grep_flags[@]}" -- "${pattern}" <<<"${input}")"
+
+  if [[ -n $found ]]; then
+    printf 'Matched pattern -> %s\n' "${pattern}";
+    printf '%s\n\n' "${found}";
+  else
+    unused_patterns+=("${pattern}")
+  fi
 done
 
+#EOP
+if [[ ${#unused_patterns[@]} -gt 0 ]]; then
+  printf 'Unused pattern(s) -> %s\n' "${unused_patterns[*]}";
+fi
